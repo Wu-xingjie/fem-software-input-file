@@ -1,0 +1,28 @@
+finish
+/clear
+/CONFIG,NPROC,2
+!/CONFIG,NRES,9999  
+/NERR,,99999999      !!!注意，由于弹簧单元过多，而且弹簧单元的两个节点不重合，
+!/CONFIG,FSPLIT,50                     !!!!!!!!!所以警告过多，为避免计算退出，扩大错误数
+/FILENAME,HBFILE
+/PREP7 
+
+RESUME,'basicFEM','db'
+NOORDER,ON
+
+/solu
+ANTYPE,2
+MODOPT,LANB,10,,,,1
+MXPAND,10,,,YES
+LUMPM,OFF
+solve
+finish
+
+/post1
+set,list
+SET,,, ,,, ,1              !读取第1阶模态
+PLNSOL, U,SUM, 0,1.0     !显示第1阶模态振型
+SET,,, ,,, ,2                !读取第2阶模态
+PLNSOL, U,SUM, 0,1.0     !显示第2阶模态振型
+SET,,, ,,, ,3              !读取第3阶模态
+PLNSOL, U,SUM, 0,1.0    !显示第3阶模态振型
