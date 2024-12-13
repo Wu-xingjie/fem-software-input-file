@@ -1,0 +1,167 @@
+finish
+/clear
+/CONFIG,NPROC,4         !CPU数目
+/PREP7 
+!------------------原始参数---------------------------------------- 
+Mac_Bri_NUM=1       !简支梁数量  
+Mac_Bri_H=3.05-1.9657       !桥梁中心距桥面的高度，通过ASUM查质心的Y坐标
+
+! 桥梁参数
+Mac_Bri_L=31.8      !桥梁长度   
+Mac_Bri_EL=0.6      !单元长度
+Mac_Bri_NE=Mac_Bri_L/Mac_Bri_EL !每座桥梁单元数量
+Mac_Bri_H=3.05-1.9657       !桥梁中心距桥面的高度，通过ASUM查质心的Y坐标
+
+Mac_Bri_EM=3.55e10  !弹性模量
+Mac_Bri_DENS=2500+160E3/11.888/9.8 !密度+加二期恒载等效密度
+Mac_Bri_Prxy=0.2
+
+*DIM,Mac_Bri_DunSpringNode,ARRAY,Mac_Bri_NUM*2    ! 桥梁与桥墩弹簧节点
+Mac_p=1
+
+! 桥墩参数
+Mac_Dun_L=18      !桥墩长度
+Mac_Dun_NUM=Mac_Bri_NUM+1     !桥墩数量     
+Mac_Dun_EL=1      !单元长度
+Mac_Dun_NE=Mac_Dun_L/Mac_Dun_EL !每座桥墩单元数量
+Mac_Dun_H=1.9657                 !桥梁中心距箱梁底部的高度，通过ASUM查质心的Y坐标
+Mac_Dun_IniNodeNo=Mac_Bri_NUM*(Mac_Bri_NE+1)+1      !起始节点号
+
+Mac_Dun_EM=3.55e10  !弹性模量
+Mac_Dun_DENS=2500 !密度+加二期恒载等效密度
+Mac_Dun_Prxy=0.2
+
+*DIM,Mac_Dun_SpringNode,ARRAY,Mac_Dun_NUM    ! 桥墩与箱梁连接弹簧节点
+*DIM,Mac_Dun_FDSpringNode,ARRAY,Mac_Dun_NUM    ! 桥墩与基础连接弹簧节点
+
+
+!----------------- 生成桥梁 -----------------------------------------
+
+ET,1,beam188     !只有两个节点，每个节点6自由度
+
+!混凝土材料属性
+MP,EX,1,Mac_Bri_EM
+MP,PRXY,1,Mac_Bri_Prxy
+MP,DENS,1,Mac_Bri_DENS
+
+SECTYPE,1,BEAM,MESH,                 !!截面类型为beam截面，该截面编号为1；
+SECOFFSET,CENT,,,      		     !!截面形心位于中间
+SECREAD,'BRIGEBEAM','SECT',' ',MESH    !!读取截面 
+
+*DO,i,1,Mac_Bri_NE+1                    !简支梁数量
+N,i,Mac_Bri_EL*(i-1),0,0
+*ENDDO
+
+TYPE,   1    !指定单元类型 
+MAT,       1
+REAL,   
+ESYS,       0   
+SECNUM,   1 
+TSHAP,LINE  
+
+N,1000000,0,0,-10
+*DO,i,1,Mac_Bri_NE
+E,i,i+1,1000000
+*ENDDO
+
+
+
+!----------------- 生成桥墩 -----------------------------------------
+
+!混凝土材料属性
+MP,EX,2,Mac_Dun_EM
+MP,PRXY,2,Mac_Dun_Prxy
+MP,DENS,2,Mac_Dun_DENS
+
+SECTYPE,2,BEAM,MESH,                 !!截面类型为beam截面，该截面编号为4；
+SECOFFSET,CENT,,,      		     !!截面形心位于中间
+SECREAD,'dunbox','SECT',' ',MESH    !!读取截面 
+
+*DO,j,1,Mac_Dun_NUM                 ! 建立墩节点，直接建立有限元模型
+Mac_Dun_SpringNode(j)=Mac_Dun_IniNodeNo+(j-1)*(Mac_Dun_NE+1)   ! 桥墩与箱梁连接弹簧节点
+Mac_Dun_FDSpringNode(j)=Mac_Dun_IniNodeNo+j*(Mac_Dun_NE+1)-1   ! 桥墩与基础连接弹簧节点
+*DO,i,1,Mac_Dun_NE+1     
+Mac_Dun_NodeNo=Mac_Dun_IniNodeNo+(j-1)*(Mac_Dun_NE+1)+i-1
+N,Mac_Dun_NodeNo,Mac_Bri_L*(j-1),0,Mac_Dun_H+Mac_Dun_EL*(i-1)
+*ENDDO
+*ENDDO
+
+
+TYPE,   1    !指定单元类型 
+MAT,       2
+REAL,   
+ESYS,       0   
+SECNUM,   2 
+TSHAP,LINE  
+
+N,1000006,-1,0,5
+*DO,j,1,Mac_Dun_NUM
+*DO,i,Mac_Dun_IniNodeNo+(j-1)*(Mac_Dun_NE+1),(Mac_Dun_IniNodeNo-1)+j*(Mac_Dun_NE+1)-1     ! 建立单元，直接建立有限元模型
+E,i,i+1,1000006
+*ENDDO
+*ENDDO
+
+!------------------- 生成桥与桥墩连接弹簧 -------------------------------------------------
+
+ET,3,COMBIN14   
+KEYOPT,3,2,1    !定义x方向弹簧
+ET,4,COMBIN14   
+KEYOPT,4,2,2    !定义Y向弹簧
+ET,5,COMBIN14   
+KEYOPT,5,2,3    !定义Z向弹簧
+ET,6,COMBIN14   
+KEYOPT,6,2,4    !定义rotx方向弹簧
+
+! 轨道与桥连接弹簧参数
+! 桥与桥墩连接弹簧参数
+Mac_Spring_EX1=1E16
+Mac_Spring_EY1=1E16
+Mac_Spring_EZ1=1E16
+Mac_Spring_CX1=1E16
+Mac_Spring_CY1=1E16
+Mac_Spring_CZ1=1E16
+Mac_Spring_ErotX1=1E16
+Mac_Spring_CrotX1=1E16
+
+!定义弹簧单元实常数 
+R,6,Mac_Spring_EX1,Mac_Spring_CX1, , , , ,     
+R,7,Mac_Spring_EY1,Mac_Spring_CY1, , , , ,     
+R,8,Mac_Spring_EZ1,Mac_Spring_CZ1, , , , ,    
+R,9,Mac_Spring_ErotX1,Mac_Spring_CrotX1, , , , ,    
+
+
+TYPE,3
+REAL,6
+E,1,55
+E,54,74
+
+TYPE,4
+REAL,7
+E,1,55
+E,54,74
+
+TYPE,5
+REAL,8
+E,1,55
+E,54,74
+
+
+TYPE,6
+REAL,9
+E,1,55
+E,54,74
+
+
+
+D,73,ALL
+D,92,ALL
+
+ALLSEL,ALL
+SAVE,'basic_FEM',db,,,
+
+ALLSEL,ALL
+/SOLU
+ANTYPE,STATIC
+ACEL,,,-9.8
+SOLVE
+FINISH
